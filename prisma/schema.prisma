@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+/// Admin kabupaten tidak terikat puskesmas; operator wajib punya puskesmasId.
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  nama         String
+  passwordHash String     @map("password_hash")
+  role         Role
+  puskesmasId  Int?       @map("puskesmas_id")
+  puskesmas    Puskesmas? @relation(fields: [puskesmasId], references: [id])
+  aktif        Boolean    @default(true)
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model Puskesmas {
+  id            Int      @id @default(autoincrement())
+  nama          String   @unique
+  namaKepala    String?  @map("nama_kepala")
+  nipKepala     String?  @map("nip_kepala")
+  jabatanKepala String?  @map("jabatan_kepala")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  anggaran  Anggaran[]
+  realisasi Realisasi[]
+  silpa     Silpa[]
+
+  @@map("puskesmas")
+}
+
+/// Bagan akun bisa berubah tiap tahun anggaran, jadi kode unik per tahun.
+model KodeRekening {
+  id       Int            @id @default(autoincrement())
+  tahun    Int
+  kode     String
+  uraian   String
+  isLeaf   Boolean        @map("is_leaf")
+  level    Int
+  parentId Int?           @map("parent_id")
+  parent   KodeRekening?  @relation("RekeningTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children KodeRekening[] @relation("RekeningTree")
+
+  anggaran  Anggaran[]
+  realisasi Realisasi[]
+
+  @@unique([tahun, kode])
+  @@index([tahun])
+  @@map("kode_rekening")
+}
+
+model Anggaran {
+  id             Int          @id @default(autoincrement())
+  puskesmasId    Int          @map("puskesmas_id")
+  puskesmas      Puskesmas    @relation(fields: [puskesmasId], references: [id])
+  kodeRekeningId Int          @map("kode_rekening_id")
+  kodeRekening   KodeRekening @relation(fields: [kodeRekeningId], references: [id], onDelete: Restrict)
+  tahun          Int
+  nilaiMurni     Decimal      @default(0) @map("nilai_murni") @db.Decimal(18, 2)
+  nilaiPerubahan Decimal      @default(0) @map("nilai_perubahan") @db.Decimal(18, 2)
+  updatedById    Int?         @map("updated_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@unique([puskesmasId, kodeRekeningId])
+  @@index([tahun, puskesmasId])
+  @@map("anggaran")
+}
+
+/// Nilai realisasi per bulan (bukan kumulatif). bulan = 1..12.
+model Realisasi {
+  id             Int          @id @default(autoincrement())
+  puskesmasId    Int          @map("puskesmas_id")
+  puskesmas      Puskesmas    @relation(fields: [puskesmasId], references: [id])
+  kodeRekeningId Int          @map("kode_rekening_id")
+  kodeRekening   KodeRekening @relation(fields: [kodeRekeningId], references: [id], onDelete: Restrict)
+  tahun          Int
+  bulan          Int
+  nilai          Decimal      @db.Decimal(18, 2)
+  updatedById    Int?         @map("updated_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@unique([puskesmasId, kodeRekeningId, bulan])
+  @@index([tahun, puskesmasId, bulan])
+  @@map("realisasi")
+}
+
+/// SILPA akhir tahun `tahun`; menjadi saldo awal tahun berikutnya di SP2B/SP3B.
+model Silpa {
+  id             Int       @id @default(autoincrement())
+  puskesmasId    Int       @map("puskesmas_id")
+  puskesmas      Puskesmas @relation(fields: [puskesmasId], references: [id])
+  tahun          Int
+  nilai          Decimal   @db.Decimal(18, 2)
+  penyetoranRkud Decimal?  @map("penyetoran_rkud") @db.Decimal(18, 2)
+  pendapatan     Decimal?  @db.Decimal(18, 2)
+  belanja        Decimal?  @db.Decimal(18, 2)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@unique([puskesmasId, tahun])
+  @@map("silpa")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  aksi      String
+  entitas   String
+  detail    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([entitas, createdAt])
+  @@map("audit_log")
+}
