@@ -42,7 +42,7 @@ services:
     restart: always
     environment:
       # Memakai user Postgres yang sama dengan aplikasi lama (DB_USER = postgres).
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/sikap_puskesmas?schema=public
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${PUSKESMAS_DB_NAME:-sikap_blud_new}?schema=public
       SESSION_SECRET: ${PUSKESMAS_SESSION_SECRET}
     depends_on:
       - db
@@ -56,7 +56,7 @@ services:
       target: tools
     image: sikap-puskesmas-tools:latest
     environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/sikap_puskesmas?schema=public
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${PUSKESMAS_DB_NAME:-sikap_blud_new}?schema=public
       # Script migrasi mengunci sesinya sendiri ke read-only, jadi DB lama tetap tidak tersentuh.
       LEGACY_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
     depends_on:
