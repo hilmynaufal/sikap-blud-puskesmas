@@ -88,5 +88,14 @@ npx tsx --env-file=.env scripts/seed-qa.ts   # qa-admin@test.local, qa-operator@
 
 ## Deploy
 
-`Dockerfile` (standalone) menjalankan `prisma migrate deploy` lalu `server.js`.
-Env wajib: `DATABASE_URL`, `SESSION_SECRET`.
+Konfigurasi Docker Compose untuk server ada di `deploy/` (aplikasi baru di domain utama,
+aplikasi lama tetap jalan untuk modul lain). Image produksi hanya menjalankan `node server.js`;
+migrasi skema dan data dijalankan lewat service `puskesmas_tools`:
+
+```bash
+docker compose build puskesmas puskesmas_tools
+docker compose run --rm puskesmas_tools npx prisma migrate deploy
+docker compose up -d --no-deps puskesmas
+```
+
+Env wajib container aplikasi: `DATABASE_URL`, `SESSION_SECRET`.
