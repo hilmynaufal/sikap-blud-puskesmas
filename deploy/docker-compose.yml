@@ -1,0 +1,96 @@
+# Pengganti docker-compose.yml di server sikapblud.
+# Aplikasi puskesmas baru mengambil alih domain utama; aplikasi lama (sikap_blud)
+# tetap berjalan untuk modul lain (Bedas Menanam, Funwalk PGRI, dll.).
+#
+# Letakkan file ini di folder compose yang sekarang (bersama .env dan nginx/),
+# lalu isi variabel PUSKESMAS_* di .env (lihat deploy/.env.example).
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      # Hanya bisa diakses dari VM itu sendiri (dulu "5432:5432" = terbuka ke internet).
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Aplikasi lama, tetap hidup untuk modul non-puskesmas.
+  app:
+    image: hilmyblaze/sikap_blud:latest
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    container_name: nextjs_app
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      - db
+
+  # Aplikasi puskesmas baru.
+  puskesmas:
+    build:
+      context: ${PUSKESMAS_SRC:-/home/linux/sikap-blud-new/sikap-blud-puskesmas}
+    image: sikap-puskesmas:latest
+    container_name: puskesmas_app
+    restart: always
+    environment:
+      # Memakai user Postgres yang sama dengan aplikasi lama (DB_USER = postgres).
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/sikap_puskesmas?schema=public
+      SESSION_SECRET: ${PUSKESMAS_SESSION_SECRET}
+    depends_on:
+      - db
+
+  # Alat sekali-jalan untuk migrasi data lama. Tidak ikut "docker compose up".
+  #   docker compose run --rm puskesmas_tools npx tsx scripts/migrate-legacy.ts
+  puskesmas_tools:
+    profiles: ["tools"]
+    build:
+      context: ${PUSKESMAS_SRC:-/home/linux/sikap-blud-new/sikap-blud-puskesmas}
+      target: tools
+    image: sikap-puskesmas-tools:latest
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/sikap_puskesmas?schema=public
+      # Script migrasi mengunci sesinya sendiri ke read-only, jadi DB lama tetap tidak tersentuh.
+      LEGACY_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    restart: always
+    ports:
+      - "80:80"
+      # Akses aplikasi lama sementara, sampai ada subdomain sendiri.
+      - "8080:8080"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+      - puskesmas
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_API_VERSION=1.25
+      - WATCHTOWER_POLL_INTERVAL=6000
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - REPO_USER=${DOCKERHUB_USERNAME}
+      - REPO_PASS=${DOCKERHUB_TOKEN}
+      # Hanya container berlabel (aplikasi lama). Aplikasi puskesmas di-build di server.
+      - WATCHTOWER_LABEL_ENABLE=true
+
+volumes:
+  pgdata:
