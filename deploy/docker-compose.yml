@@ -34,12 +34,17 @@ services:
       - db
 
   # Aplikasi puskesmas baru.
+  # Migrasi skema TIDAK dijalankan di sini; jalankan dulu lewat puskesmas_tools:
+  #   docker compose run --rm puskesmas_tools npx prisma migrate deploy
   puskesmas:
     build:
       context: ${PUSKESMAS_SRC:-/home/linux/sikap-blud-new/sikap-blud-puskesmas}
+      # Pakai DNS milik VM; DNS jaringan bridge Docker di server ini putus-nyambung.
+      network: host
     image: sikap-puskesmas:latest
     container_name: puskesmas_app
     restart: always
+    command: ["node", "server.js"]
     environment:
       # Memakai user Postgres yang sama dengan aplikasi lama (DB_USER = postgres).
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${PUSKESMAS_DB_NAME:-sikap_blud_new}?schema=public
@@ -47,13 +52,15 @@ services:
     depends_on:
       - db
 
-  # Alat sekali-jalan untuk migrasi data lama. Tidak ikut "docker compose up".
-  #   docker compose run --rm puskesmas_tools npx tsx scripts/migrate-legacy.ts
+  # Alat sekali-jalan (tidak ikut "docker compose up"):
+  #   docker compose run --rm puskesmas_tools npx prisma migrate deploy        # skema
+  #   docker compose run --rm puskesmas_tools npx tsx scripts/migrate-legacy.ts  # data lama
   puskesmas_tools:
     profiles: ["tools"]
     build:
       context: ${PUSKESMAS_SRC:-/home/linux/sikap-blud-new/sikap-blud-puskesmas}
       target: tools
+      network: host
     image: sikap-puskesmas-tools:latest
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${PUSKESMAS_DB_NAME:-sikap_blud_new}?schema=public
