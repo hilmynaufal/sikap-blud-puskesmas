@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { DataKeuangan } from "@/lib/laporan"
 import { DEFAULT_LAPORAN, nomorDefault, type Sp3bForm } from "@/lib/laporan-form"
+import { catatCetak } from "@/lib/actions/laporan"
 import { useFilterQuery } from "@/components/puskesmas/pilih-periode"
 import { useNotifikasi } from "@/components/puskesmas/notifikasi"
 import { JudulHalaman } from "@/components/puskesmas/dashboard-ui"
@@ -17,7 +18,8 @@ import {
   filterCls,
   hariIni,
   inputCls,
-  unduhPdf,
+  namaFilePdf,
+  unduhPdfDariHtml,
   useIsianTersimpan,
 } from "@/components/laporan/generator-ui"
 
@@ -58,16 +60,20 @@ export function GeneratorSp3b({ tahun, tahunList, bulan, puskesmasList, terkunci
   const ubahAuto = (k: keyof typeof auto, v: string) => setAuto((a) => ({ ...a, [k]: v }))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mencetak, setMencetak] = useState(false)
+  const dokRef = useRef<HTMLDivElement>(null)
 
   const k = keuangan ?? KOSONG
   const form: Sp3bForm = { puskesmasId: pusk?.id ?? null, tahun, bulan, ...umum, ...auto }
 
   const cetak = async () => {
+    const dok = dokRef.current?.querySelector<HTMLElement>(".sp-doc")
+    if (!dok || !pusk) return
     setMencetak(true)
-    const err = await unduhPdf("sp3b", form)
+    const err = await unduhPdfDariHtml(dok, namaFilePdf("SP3B", pusk.nama, bulan, tahun))
     setMencetak(false)
-    if (err) notif.tampil("Gagal", err, "error")
-    else notif.tampil("Berhasil", "PDF SP3B berhasil dibuat.", "success")
+    if (err) return notif.tampil("Gagal", err, "error")
+    notif.tampil("Berhasil", "PDF SP3B berhasil dibuat.", "success")
+    catatCetak({ jenis: "sp3b", puskesmasId: pusk.id, tahun, bulan }).catch(() => {})
   }
 
   return (
@@ -198,7 +204,7 @@ export function GeneratorSp3b({ tahun, tahunList, bulan, puskesmasList, terkunci
 
       {/* PREVIEW */}
       <div className="bg-slate-100 rounded-xl border border-slate-200 p-6">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={dokRef}>
           <DokumenSp3b f={form} k={k} />
         </div>
       </div>

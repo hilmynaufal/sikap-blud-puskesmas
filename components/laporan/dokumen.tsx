@@ -1,5 +1,5 @@
-/* Pratinjau dokumen di layar, markup disalin dari sp3b-generator.html & sp2b-generator.html.
-   PDF resmi dibuat di server (lib/pdf) dari data yang sama. */
+/* Dokumen SP2B/SP3B (pratinjau di layar sekaligus sumber PDF), markup disalin dari sp3b-generator.html & sp2b-generator.html.
+   PDF dibuat di browser dari elemen ini (unduhPdfDariHtml). */
 import { formatDokumen } from "@/lib/format"
 import { DAFTAR_BULAN } from "@/lib/bulan"
 import { formatTanggal, type Sp2bForm, type Sp3bForm } from "@/lib/laporan-form"

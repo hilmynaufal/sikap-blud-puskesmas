@@ -4,8 +4,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
   poweredByHeader: false,
-  // react-pdf memakai modul Node (fontkit, yoga) yang tidak perlu dibundel.
-  serverExternalPackages: ["@react-pdf/renderer"],
   async headers() {
     return [
       {

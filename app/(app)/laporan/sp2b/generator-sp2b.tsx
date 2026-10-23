@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { DataKeuangan } from "@/lib/laporan"
 import { DEFAULT_LAPORAN, nomorDefault, type Sp2bForm } from "@/lib/laporan-form"
+import { catatCetak } from "@/lib/actions/laporan"
 import { useFilterQuery } from "@/components/puskesmas/pilih-periode"
 import { useNotifikasi } from "@/components/puskesmas/notifikasi"
 import { JudulHalaman } from "@/components/puskesmas/dashboard-ui"
@@ -17,7 +18,8 @@ import {
   filterCls,
   hariIni,
   inputCls,
-  unduhPdf,
+  namaFilePdf,
+  unduhPdfDariHtml,
   useIsianTersimpan,
 } from "@/components/laporan/generator-ui"
 
@@ -55,16 +57,20 @@ export function GeneratorSp2b({ tahun, tahunList, bulan, puskesmasList, terkunci
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [skala, setSkala] = useState(90)
   const [mencetak, setMencetak] = useState(false)
+  const dokRef = useRef<HTMLDivElement>(null)
 
   const k = keuangan ?? KOSONG
   const form: Sp2bForm = { puskesmasId: pusk?.id ?? null, tahun, bulan, ...umum, ...auto }
 
   const cetak = async () => {
+    const dok = dokRef.current?.querySelector<HTMLElement>(".sp-doc")
+    if (!dok || !pusk) return
     setMencetak(true)
-    const err = await unduhPdf("sp2b", form)
+    const err = await unduhPdfDariHtml(dok, namaFilePdf("SP2B", pusk.nama, bulan, tahun))
     setMencetak(false)
-    if (err) notif.tampil("Gagal", err, "error")
-    else notif.tampil("Berhasil", "PDF SP2B berhasil dibuat.", "success")
+    if (err) return notif.tampil("Gagal", err, "error")
+    notif.tampil("Berhasil", "PDF SP2B berhasil dibuat.", "success")
+    catatCetak({ jenis: "sp2b", puskesmasId: pusk.id, tahun, bulan }).catch(() => {})
   }
 
   return (
@@ -180,7 +186,7 @@ export function GeneratorSp2b({ tahun, tahunList, bulan, puskesmasList, terkunci
 
       {/* PREVIEW */}
       <div className="bg-slate-100 rounded-xl border border-slate-200 p-6">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={dokRef}>
           <DokumenSp2b f={form} k={k} zoom={skala} />
         </div>
       </div>

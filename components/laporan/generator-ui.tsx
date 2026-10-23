@@ -150,25 +150,44 @@ export function OverlayMemuat() {
 }
 
 /** Minta PDF ke server lalu unduh. */
-export async function unduhPdf(jenis: "sp3b" | "sp2b", body: unknown): Promise<string | null> {
-  const res = await fetch(`/api/laporan/${jenis}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const j = await res.json().catch(() => null)
-    return j?.message ?? "Gagal membuat PDF"
+/**
+ * Ubah pratinjau dokumen (HTML) menjadi PDF A4 satu halaman lalu unduh,
+ * seperti tombol "Cetak PDF" di generator lama (html2pdf).
+ * Memakai html2canvas-pro karena html2canvas biasa gagal membaca warna oklch() Tailwind 4.
+ */
+export async function unduhPdfDariHtml(el: HTMLElement, namaFile: string): Promise<string | null> {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas-pro"), import("jspdf")])
+  // Skala pratinjau (zoom) dan bayangan kartu tidak boleh ikut ke dokumen.
+  const zoomAwal = el.style.zoom
+  const bayanganAwal = el.style.boxShadow
+  el.style.zoom = ""
+  el.style.boxShadow = "none"
+  try {
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false })
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" })
+    const [halW, halH] = [210, 297]
+    // Lebar penuh A4; kalau dokumen lebih panjang dari satu halaman, kecilkan agar muat.
+    let w = halW
+    let h = (canvas.height * w) / canvas.width
+    if (h > halH) {
+      h = halH
+      w = (canvas.width * h) / canvas.height
+    }
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", (halW - w) / 2, 0, w, h)
+    pdf.save(namaFile)
+    return null
+  } catch (err) {
+    console.error(err)
+    return "Gagal membuat PDF dari pratinjau."
+  } finally {
+    el.style.zoom = zoomAwal
+    el.style.boxShadow = bayanganAwal
   }
-  const blob = await res.blob()
-  const nama = res.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ?? `${jenis}.pdf`
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = nama
-  a.click()
-  URL.revokeObjectURL(url)
-  return null
+}
+
+/** "SP3B_Arjasari_September_2026.pdf" */
+export function namaFilePdf(jenis: "SP3B" | "SP2B", namaPuskesmas: string, bulan: number, tahun: number) {
+  return `${jenis}_${namaPuskesmas.replace(/^puskesmas\s+/i, "")}_${DAFTAR_BULAN[bulan - 1]}_${tahun}.pdf`.replace(/\s+/g, "_")
 }
 
 export function hariIni() {

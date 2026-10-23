@@ -7,7 +7,7 @@ dengan tampilan yang sama tetapi logika, otorisasi, dan perhitungan di server.
 ## Stack
 
 Next.js 16 (App Router, Server Actions) · React 19 · Prisma 6 + PostgreSQL · Tailwind 4 ·
-Chart.js · @react-pdf/renderer (PDF SP2B/SP3B) · SheetJS (export Excel)
+Chart.js · jsPDF + html2canvas-pro (PDF SP2B/SP3B dari pratinjau HTML) · SheetJS (export Excel)
 
 ## Menjalankan lokal
 
@@ -35,7 +35,7 @@ app/(app)/anggaran/{dashboard,input}       menu 25, 26 lama
 app/(app)/realisasi/{input,dashboard,kumulatif,per-puskesmas}  menu 23, 21, 30, 28
 app/(app)/laporan/{sp2b,sp3b}              sp2b-/sp3b-generator.html lama
 app/(app)/master/*                         pengganti menu "Kelola ..." berbasis tabel
-app/api/laporan/[jenis]                    PDF (angka dihitung ulang di server)
+components/laporan/                        dokumen SP2B/SP3B (HTML) + unduh PDF di browser
 lib/data.ts                                query + rollup hierarki rekening
 lib/laporan.ts                             perhitungan SP2B/SP3B
 lib/actions/                               server actions (input, master)
