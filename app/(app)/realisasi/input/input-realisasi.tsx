@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DAFTAR_BULAN } from "@/lib/bulan"
-import { formatInputIDR, parseInputIDR } from "@/lib/format"
+import { bulat2, formatAngka, formatInputIDR, keIsian, parseInputIDR } from "@/lib/format"
 import type { RekeningRow } from "@/lib/data"
 import { simpanRealisasi } from "@/lib/actions/input"
 import { useFilterQuery } from "@/components/puskesmas/pilih-periode"
@@ -27,27 +27,28 @@ export function InputRealisasi({ master, existing, tahun, tahunList, bulan, pusk
   const filter = useFilterQuery()
   const notif = useNotifikasi("indigo")
   const [nilai, setNilai] = useState<Record<number, string>>(() =>
-    Object.fromEntries(Object.entries(existing).map(([id, v]) => [id, formatInputIDR(Math.round(v))])),
+    Object.fromEntries(Object.entries(existing).map(([id, v]) => [id, keIsian(v)])),
   )
   const [modal, setModal] = useState<StatusModal>("tutup")
   const siap = useSiapInput()
   const [pesanHasil, setPesanHasil] = useState("")
 
   const { count, total } = useMemo(() => {
+    // Dijumlah dalam sen supaya tidak muncul sisa pecahan floating point.
     let count = 0
-    let total = 0
+    let sen = 0
     for (const v of Object.values(nilai)) {
       const n = parseInputIDR(v)
       if (n > 0) {
-        total += n
+        sen += Math.round(n * 100)
         count++
       }
     }
-    return { count, total }
+    return { count, total: sen / 100 }
   }, [nilai])
 
-  const dirty = master.some((m) => m.isLeaf && parseInputIDR(nilai[m.id] ?? "") !== Math.round(existing[m.id] ?? 0))
-  const totalStr = "Rp " + (total > 0 ? formatInputIDR(total) : "0")
+  const dirty = master.some((m) => m.isLeaf && parseInputIDR(nilai[m.id] ?? "") !== bulat2(existing[m.id] ?? 0))
+  const totalStr = "Rp " + (total > 0 ? formatAngka(total) : "0")
   const namaBulan = DAFTAR_BULAN[bulan - 1]
 
   const gantiFilter = (ubah: Record<string, string | number | null>) => {
@@ -168,7 +169,7 @@ export function InputRealisasi({ master, existing, tahun, tahunList, bulan, pusk
                   <td className="p-0 border-l border-amber-100">
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       readOnly={!siap}
                       className="input-cell"
                       placeholder="0"

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { formatInputIDR, parseInputIDR } from "@/lib/format"
+import { bulat2, formatAngka, formatInputIDR, keIsian, parseInputIDR } from "@/lib/format"
 import type { RekeningRow } from "@/lib/data"
 import { simpanAnggaran } from "@/lib/actions/input"
 import { useFilterQuery } from "@/components/puskesmas/pilih-periode"
@@ -22,8 +22,8 @@ interface Props {
   puskesmasList: { id: number; nama: string }[]
 }
 
-/** formatIDR versi layout anggaran lama: 0 dikosongkan. */
-const fmt = (v: number | string) => {
+/** Seperti layout anggaran lama: angka 0 dikosongkan (tetapi "0," / "0,5" untuk desimal dipertahankan). */
+const fmt = (v: string) => {
   const s = formatInputIDR(v)
   return s === "0" ? "" : s
 }
@@ -34,7 +34,7 @@ export function InputAnggaran({ master, existing, tahun, tahunList, puskesmas, p
   const notif = useNotifikasi("emerald")
   const [nilai, setNilai] = useState<Record<number, Nilai>>(() =>
     Object.fromEntries(
-      Object.entries(existing).map(([id, v]) => [id, { murni: fmt(Math.round(v.murni)), perubahan: fmt(Math.round(v.perubahan)) }]),
+      Object.entries(existing).map(([id, v]) => [id, { murni: keIsian(v.murni), perubahan: keIsian(v.perubahan) }]),
     ),
   )
   const [modal, setModal] = useState<StatusModal>("tutup")
@@ -42,28 +42,29 @@ export function InputAnggaran({ master, existing, tahun, tahunList, puskesmas, p
   const [pesanHasil, setPesanHasil] = useState("")
 
   const ringkasan = useMemo(() => {
-    let totalMurni = 0
-    let totalPerubahan = 0
+    // Dijumlah dalam sen supaya tidak muncul sisa pecahan floating point.
+    let senMurni = 0
+    let senPerubahan = 0
     let count = 0
     for (const v of Object.values(nilai)) {
       const m = parseInputIDR(v.murni)
       const p = parseInputIDR(v.perubahan)
-      totalMurni += m
-      totalPerubahan += p
+      senMurni += Math.round(m * 100)
+      senPerubahan += Math.round(p * 100)
       if (m > 0 || p > 0) count++
     }
-    return { totalMurni, totalPerubahan, count }
+    return { totalMurni: senMurni / 100, totalPerubahan: senPerubahan / 100, count }
   }, [nilai])
 
   const dirty = master.some((r) => {
     if (!r.isLeaf) return false
     const e = existing[r.id]
     return (
-      parseInputIDR(nilai[r.id]?.murni ?? "") !== Math.round(e?.murni ?? 0) ||
-      parseInputIDR(nilai[r.id]?.perubahan ?? "") !== Math.round(e?.perubahan ?? 0)
+      parseInputIDR(nilai[r.id]?.murni ?? "") !== bulat2(e?.murni ?? 0) ||
+      parseInputIDR(nilai[r.id]?.perubahan ?? "") !== bulat2(e?.perubahan ?? 0)
     )
   })
-  const rp = (n: number) => "Rp " + (n > 0 ? formatInputIDR(n) : "0")
+  const rp = (n: number) => "Rp " + (n > 0 ? formatAngka(n) : "0")
 
   const gantiFilter = (ubah: Record<string, string | number | null>) => {
     if (dirty && !window.confirm("Ada perubahan yang belum disimpan. Lanjutkan tanpa menyimpan?")) return
@@ -184,7 +185,7 @@ export function InputAnggaran({ master, existing, tahun, tahunList, puskesmas, p
                   <td className="p-0 border-l border-slate-200">
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       readOnly={!siap}
                       className="input-cell input-murni"
                       placeholder="0"
@@ -195,7 +196,7 @@ export function InputAnggaran({ master, existing, tahun, tahunList, puskesmas, p
                   <td className="p-0 border-l border-emerald-100">
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       readOnly={!siap}
                       className="input-cell input-perubahan"
                       placeholder="0"

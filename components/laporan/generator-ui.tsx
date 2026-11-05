@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { DAFTAR_BULAN } from "@/lib/bulan"
+import { formatAngka } from "@/lib/format"
 
 export const inputCls =
   "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -67,14 +68,14 @@ export function FieldApi({ label, nilai, kecil }: { label: string; nilai: number
     return (
       <div className="flex gap-2 items-center">
         <span className="text-xs text-slate-500 w-24 flex-shrink-0">{label}</span>
-        <input value={nilai} readOnly className="api-field flex-1 px-2 py-1.5 text-xs border border-blue-200 rounded-lg outline-none" />
+        <input value={formatAngka(nilai)} readOnly className="api-field flex-1 px-2 py-1.5 text-xs border border-blue-200 rounded-lg outline-none" />
       </div>
     )
   }
   return (
     <div>
       <Label>{label}</Label>
-      <input value={nilai} readOnly className="api-field w-full px-3 py-2 text-sm border border-blue-200 rounded-lg outline-none" />
+      <input value={formatAngka(nilai)} readOnly className="api-field w-full px-3 py-2 text-sm border border-blue-200 rounded-lg outline-none" />
     </div>
   )
 }

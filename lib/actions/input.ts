@@ -8,7 +8,24 @@ import { AksesDitolak, getCurrentUser, puskesmasWajib } from "@/lib/auth"
 
 export type HasilSimpan = { ok: true; jumlah: number; dihapus: number } | { ok: false; pesan: string }
 
-const nilaiSchema = z.number().int().min(0).max(1e15)
+/**
+ * Maksimal 2 angka di belakang koma. Toleransi relatif terhadap besar angka, karena di
+ * angka ratusan miliar v*100 pada floating point menyisakan selisih kecil (mis. 0,002).
+ */
+const duaDesimal = (v: number) => {
+  const sen = v * 100
+  return Math.abs(sen - Math.round(sen)) <= Math.max(1e-6, Math.abs(sen) * Number.EPSILON * 8)
+}
+
+/** Rupiah, maksimal 2 angka di belakang koma (kolom numeric(18,2)). */
+const nilaiSchema = z
+  .number()
+  .min(0)
+  .max(1e15)
+  .refine(duaDesimal, "Maksimal 2 angka di belakang koma")
+
+/** Kirim ke Prisma sebagai string supaya tersimpan tepat, tanpa sisa pecahan floating point. */
+const keDesimal = (v: number) => v.toFixed(2)
 
 const realisasiSchema = z.object({
   puskesmasId: z.number().int().nullable(),
@@ -61,8 +78,8 @@ export async function simpanRealisasi(input: z.input<typeof realisasiSchema>): P
       ...isi.map((i) =>
         prisma.realisasi.upsert({
           where: { puskesmasId_kodeRekeningId_bulan: { puskesmasId, kodeRekeningId: i.kodeRekeningId, bulan: data.bulan } },
-          create: { puskesmasId, kodeRekeningId: i.kodeRekeningId, tahun: data.tahun, bulan: data.bulan, nilai: i.nilai, updatedById: user.id },
-          update: { nilai: i.nilai, updatedById: user.id },
+          create: { puskesmasId, kodeRekeningId: i.kodeRekeningId, tahun: data.tahun, bulan: data.bulan, nilai: keDesimal(i.nilai), updatedById: user.id },
+          update: { nilai: keDesimal(i.nilai), updatedById: user.id },
         }),
       ),
       prisma.auditLog.create({
@@ -98,8 +115,8 @@ export async function simpanAnggaran(input: z.input<typeof anggaranSchema>): Pro
       ...isi.map((i) =>
         prisma.anggaran.upsert({
           where: { puskesmasId_kodeRekeningId: { puskesmasId, kodeRekeningId: i.kodeRekeningId } },
-          create: { puskesmasId, kodeRekeningId: i.kodeRekeningId, tahun: data.tahun, nilaiMurni: i.murni, nilaiPerubahan: i.perubahan, updatedById: user.id },
-          update: { nilaiMurni: i.murni, nilaiPerubahan: i.perubahan, updatedById: user.id },
+          create: { puskesmasId, kodeRekeningId: i.kodeRekeningId, tahun: data.tahun, nilaiMurni: keDesimal(i.murni), nilaiPerubahan: keDesimal(i.perubahan), updatedById: user.id },
+          update: { nilaiMurni: keDesimal(i.murni), nilaiPerubahan: keDesimal(i.perubahan), updatedById: user.id },
         }),
       ),
       prisma.auditLog.create({

@@ -1,6 +1,6 @@
 "use client"
 
-import { formatCurrency } from "@/lib/format"
+import { formatAngka, formatCurrency } from "@/lib/format"
 
 export function KartuStat({
   label,
@@ -28,7 +28,7 @@ export function KartuStat({
   // Ukuran font mengikuti lebar kartu (container query) supaya angka miliaran tidak terpotong;
   // "Rp" dipisah spasi biasa (bukan nbsp dari Intl) agar boleh turun baris di kartu sempit.
   const ukuran = besar === "text-3xl" ? "[font-size:clamp(1.125rem,6.5cqw,1.875rem)]" : "[font-size:clamp(1.05rem,6cqw,1.5rem)]"
-  const angka = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(Math.abs(nilai))
+  const angka = formatAngka(Math.abs(nilai))
   return (
     <div className="@container bg-white rounded-xl p-6 shadow-sm border border-slate-100 min-w-0">
       <div className="flex justify-between items-start gap-3">
