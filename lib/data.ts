@@ -100,13 +100,22 @@ export async function dashboardRealisasi(tahun: number, puskesmasId: number | nu
 
 // ── Dashboard anggaran (per tahun) ─────────────────────────────────────
 
+export type JenisAnggaran = "efektif" | "murni" | "perubahan"
+
 export type BarisTahunan = { kode: string; uraian: string; isLeaf: boolean; level: number; tahunan: Record<number, number>; total: number }
 
 /**
  * Bagan akun bisa beda per tahun, jadi baris disatukan berdasarkan kode.
- * Nilai yang dipakai: anggaran perubahan kalau ada, kalau tidak anggaran murni (sama seperti dulu).
+ * Jenis nilai:
+ * - "efektif" (default): anggaran perubahan kalau ada, kalau tidak anggaran murni (sama seperti dulu).
+ * - "murni": hanya nilai anggaran murni.
+ * - "perubahan": hanya nilai anggaran perubahan.
  */
-export async function dashboardAnggaran(tahunList: number[], puskesmasId: number | null): Promise<BarisTahunan[]> {
+export async function dashboardAnggaran(
+  tahunList: number[],
+  puskesmasId: number | null,
+  jenis: JenisAnggaran = "efektif",
+): Promise<BarisTahunan[]> {
   const perKode = new Map<string, BarisTahunan>()
   for (const tahun of [...tahunList].sort((a, b) => b - a)) {
     const master = await masterRekening(tahun)
@@ -119,7 +128,8 @@ export async function dashboardAnggaran(tahunList: number[], puskesmasId: number
     for (const d of detail) {
       const p = Number(d.nilaiPerubahan)
       const cur = perId.get(d.kodeRekeningId) ?? { v: 0 }
-      cur.v += p !== 0 ? p : Number(d.nilaiMurni)
+      const m = Number(d.nilaiMurni)
+      cur.v += jenis === "murni" ? m : jenis === "perubahan" ? p : p !== 0 ? p : m
       perId.set(d.kodeRekeningId, cur)
     }
     const agg = rollup(master, perId, () => ({ v: 0 }), (t, s) => (t.v += s.v))

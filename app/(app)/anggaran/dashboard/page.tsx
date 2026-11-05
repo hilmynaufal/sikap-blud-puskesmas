@@ -1,5 +1,5 @@
 import { requireUser, puskesmasUntuk } from "@/lib/auth"
-import { dashboardAnggaran, daftarPuskesmas, daftarTahun } from "@/lib/data"
+import { dashboardAnggaran, daftarPuskesmas, daftarTahun, type JenisAnggaran } from "@/lib/data"
 import { angka, type SearchParams } from "@/lib/params"
 import { DashboardAnggaran } from "./dashboard-anggaran"
 
@@ -15,13 +15,16 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const fokusQ = angka(sp.fokus)
   const fokus = fokusQ && tahunKolom.includes(fokusQ) ? fokusQ : null
   const puskesmasId = puskesmasUntuk(user, angka(sp.puskesmas))
-  const rows = await dashboardAnggaran(tahunKolom, puskesmasId)
+  const jenisQ = Array.isArray(sp.jenis) ? sp.jenis[0] : sp.jenis
+  const jenis: JenisAnggaran = jenisQ === "murni" || jenisQ === "perubahan" ? jenisQ : "efektif"
+  const rows = await dashboardAnggaran(tahunKolom, puskesmasId, jenis)
 
   return (
     <DashboardAnggaran
       rows={rows}
       tahunKolom={tahunKolom}
       fokus={fokus}
+      jenis={jenis}
       puskesmasId={puskesmasId}
       puskesmasList={puskesmasList}
       terkunci={user.role === "OPERATOR"}
