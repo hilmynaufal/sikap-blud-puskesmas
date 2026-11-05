@@ -1,7 +1,7 @@
 "use client"
 
 import { exportExcel } from "@/lib/excel"
-import type { BarisTahunan } from "@/lib/data"
+import type { BarisTahunan, JenisAnggaran } from "@/lib/data"
 import { useFilterQuery } from "@/components/puskesmas/pilih-periode"
 import { JudulHalaman, KartuFilter, KartuStat, Loader, SelectFilter, TombolAksi } from "@/components/puskesmas/dashboard-ui"
 import { MatriksRekening } from "@/components/puskesmas/matriks"
@@ -11,14 +11,16 @@ interface Props {
   rows: BarisTahunan[]
   tahunKolom: number[]
   fokus: number | null
+  jenis: JenisAnggaran
   puskesmasId: number | null
   puskesmasList: { id: number; nama: string }[]
   terkunci: boolean
 }
 
 /** Dashboard Anggaran Puskesmas (menu 25 aplikasi lama). */
-export function DashboardAnggaran({ rows, tahunKolom, fokus, puskesmasId, puskesmasList, terkunci }: Props) {
+export function DashboardAnggaran({ rows, tahunKolom, fokus, jenis, puskesmasId, puskesmasList, terkunci }: Props) {
   const filter = useFilterQuery()
+  const labelJenis = { efektif: "Efektif (Perubahan, jika kosong Murni)", murni: "Murni", perubahan: "Perubahan" }[jenis]
   const nilaiFokus = (r: BarisTahunan | undefined) => (r ? (fokus ? r.tahunan[fokus] ?? 0 : r.total) : 0)
 
   const pendapatan = nilaiFokus(rows.find((r) => r.kode === "4"))
@@ -38,7 +40,7 @@ export function DashboardAnggaran({ rows, tahunKolom, fokus, puskesmasId, puskes
       headers: ["Kode Rekening", "Uraian Rekening", ...tahunKolom.map((t) => `Thn ${t}`), "Total Akumulasi"],
       rows: rows.map((r) => [r.kode, r.uraian, ...tahunKolom.map((t) => r.tahunan[t] ?? 0), nilaiFokus(r)]),
       lebar: [25, 50, ...tahunKolom.map(() => 20), 22],
-      namaFile: `Anggaran_${puskLabel}_${tahunLabel}.xlsx`,
+      namaFile: `Anggaran_${jenis}_${puskLabel}_${tahunLabel}.xlsx`,
       namaSheet: "Anggaran",
     })
   }
@@ -72,6 +74,11 @@ export function DashboardAnggaran({ rows, tahunKolom, fokus, puskesmasId, puskes
                 </option>
               ))}
             </SelectFilter>
+            <SelectFilter ikon="fa-solid fa-file-invoice-dollar" value={jenis} onChange={(v) => filter.set({ jenis: v === "efektif" ? null : v })}>
+              <option value="efektif">Jenis: Efektif (Perubahan/Murni)</option>
+              <option value="murni">Jenis: Anggaran Murni</option>
+              <option value="perubahan">Jenis: Anggaran Perubahan</option>
+            </SelectFilter>
           </>
         }
         aksi={
@@ -94,7 +101,7 @@ export function DashboardAnggaran({ rows, tahunKolom, fokus, puskesmasId, puskes
 
           <MatriksRekening
             judul="Matriks Anggaran Per Tahun"
-            catatan="* Nilai Anggaran dalam Rupiah (IDR)"
+            catatan={`* Nilai Anggaran dalam Rupiah (IDR) — Jenis: ${labelJenis}`}
             rows={rows}
             rowKey={(r) => r.kode}
             kolom={tahunKolom.map((t) => ({ key: t, label: `Thn ${t}`, nilai: (r: BarisTahunan) => r.tahunan[t] ?? 0, sorot: fokus === t }))}
